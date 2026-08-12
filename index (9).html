@@ -1,0 +1,1731 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="icon" href="data:,">
+<title>未收录 · 词典修订实录</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; }
+  body {
+    background:#0b0a09;
+    font-family:"Songti SC","STSong","Noto Serif SC","SimSun",serif;
+    color:#2b2620;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ================= 桌面环境 ================= */
+  /* 纸屑颗粒（极轻，落在桌面上） */
+  #grain {
+    position:fixed; inset:-100px; z-index:60; pointer-events:none; opacity:.05;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+    animation:grainShift .6s steps(4) infinite;
+  }
+  @keyframes grainShift {
+    0%{transform:translate(0,0)} 25%{transform:translate(-18px,12px)}
+    50%{transform:translate(14px,-20px)} 75%{transform:translate(-10px,-14px)}
+    100%{transform:translate(0,0)}
+  }
+  /* 台灯锥光：桌面唯一光源 */
+  #lamp {
+    position:fixed; inset:0; z-index:5; pointer-events:none;
+    background:radial-gradient(ellipse 90% 75% at 50% 42%, rgba(255,238,200,.10) 0%, rgba(255,238,200,.03) 42%, transparent 68%);
+    transition:opacity 1.2s;
+  }
+  #lamp.flicker { animation:lampFlk .18s steps(2) 3; }
+  @keyframes lampFlk { 50%{opacity:.25} }
+
+  /* ================= 书（摊开的词典） ================= */
+  #book {
+    position:fixed; z-index:10;
+    top:4vh; bottom:4vh; left:50%; transform:translateX(-50%);
+    width:min(860px, 94vw);
+    perspective:1600px;
+  }
+  #page {
+    position:absolute; inset:0;
+    background:#ece5d1;
+    background-image:
+      linear-gradient(90deg, rgba(0,0,0,.10) 0%, transparent 4%, transparent 96%, rgba(0,0,0,.12) 100%),
+      radial-gradient(ellipse at 50% 0%, rgba(255,252,240,.5) 0%, transparent 60%),
+      repeating-linear-gradient(0deg, transparent 0 34px, rgba(120,100,70,.05) 34px 35px);
+    box-shadow:0 22px 60px rgba(0,0,0,.75), 0 4px 14px rgba(0,0,0,.5), inset 0 0 90px rgba(120,95,55,.14);
+    border-radius:3px;
+    transform-origin:left center;
+    transition:transform .8s cubic-bezier(.65,0,.25,1), opacity .8s;
+  }
+  #page.flip-out { transform:rotateY(-72deg) translateX(-3%); opacity:0; }
+  #page.flip-in  { transform:rotateY(46deg); opacity:0; }
+  /* 渗血渍（剧情触发） */
+  #page::after {
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(circle at var(--stain-x,78%) var(--stain-y,84%), rgba(140,10,10,var(--stain-o,0)) 0%, transparent 26%);
+    transition:--stain-o 2s;
+  }
+  #pageInner {
+    position:absolute; inset:0; z-index:1;
+    padding:5.5% 7% 9%;
+    overflow-y:auto; scrollbar-width:none;
+    border-radius:3px; overflow-x:hidden;
+  }
+  #pageInner::-webkit-scrollbar { display:none; }
+
+  /* 页眉：书名 + 部首 */
+  #folio {
+    display:flex; justify-content:space-between; align-items:baseline;
+    border-bottom:1px solid rgba(60,45,25,.35);
+    padding-bottom:.7em; margin-bottom:1.6em;
+    font-size:12px; letter-spacing:.42em; color:#6b5c44;
+  }
+  #folio .bushou { letter-spacing:.2em; color:#8a7a5c; }
+  #folio.red { color:#7e1010; border-bottom-color:rgba(140,15,15,.5); }
+  #folio.red .bushou { color:#a01212; }
+
+  /* 页码（会说谎） */
+  #pagenum {
+    position:absolute; bottom:3%; left:50%; transform:translateX(-50%); z-index:2;
+    font-size:12.5px; letter-spacing:.4em; text-indent:.4em; color:#7a6b4f;
+    font-family:"Courier New",ui-monospace,monospace;
+  }
+  #pagenum.lying { color:#a01212; }
+
+  /* 翻页角：缺一角，露出下一页 */
+  #turn {
+    position:absolute; right:0; bottom:0; z-index:12;
+    width:112px; height:112px; cursor:pointer; display:none;
+  }
+  /* 露出的下一页（纸色略沉，缺角边缘有投影） */
+  #turn::before {
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(225deg, #d8cfb4 0%, #e8e1cc 55%, #cec5a9 100%);
+    clip-path:polygon(100% 0, 100% 100%, 0 100%);
+    box-shadow:inset 7px 7px 14px rgba(60,45,25,.3);
+    transition:transform .3s;
+    transform-origin:100% 100%;
+    animation:turnPulse 2.4s ease-in-out infinite;
+  }
+  @keyframes turnPulse {
+    0%,100% { filter:brightness(1); }
+    50%     { filter:brightness(1.13); }
+  }
+  #turn:hover::before { transform:scale(1.18); }
+  #turn span {
+    position:absolute; right:12px; bottom:14px;
+    font-size:14.5px; letter-spacing:.18em; color:#7a6b4f;
+    white-space:nowrap;
+    animation:turnTxt 2.4s ease-in-out infinite;
+  }
+  #turn span::after { content:" »"; color:#a01212; }
+  @keyframes turnTxt { 0%,100%{color:#7a6b4f} 50%{color:#a01212} }
+  #turn:hover span { animation:none; color:#a01212; }
+
+  /* 彩蛋字：文中可点的字 */
+  .egg { cursor:pointer; border-bottom:1px dotted transparent; transition:color .6s, border-color .6s; }
+  .egg:hover { border-bottom-color:rgba(160,18,18,.55); }
+  .egg.found { color:#a01212; }
+  .egg-pop {
+    position:fixed; z-index:95; pointer-events:none; max-width:240px;
+    font-family:"Kaiti SC","STKaiti","KaiTi",serif; font-size:14.5px; letter-spacing:.06em;
+    color:#d86a5a; background:rgba(10,7,5,.88); border:1px solid rgba(160,18,18,.4);
+    padding:.5em .9em; border-radius:2px;
+    animation:eggFloat 2.1s forwards;
+  }
+  @keyframes eggFloat {
+    0% { opacity:0; transform:translateY(8px); }
+    14% { opacity:1; transform:translateY(0); }
+    78% { opacity:1; }
+    100% { opacity:0; transform:translateY(-12px); }
+  }
+
+  /* ================= 拇指索引（右侧部首标签） ================= */
+  #tabs {
+    position:absolute; right:-26px; top:6%; bottom:6%; z-index:3;
+    display:flex; flex-direction:column; justify-content:space-between;
+    width:26px; pointer-events:none;
+  }
+  .tab {
+    flex:1; margin:2px 0; display:flex; align-items:center; justify-content:center;
+    background:#d8cdb2; color:#6b5c44;
+    font-size:13px; border-radius:0 3px 3px 0;
+    box-shadow:2px 2px 5px rgba(0,0,0,.4);
+    transition:background .8s, color .8s;
+  }
+  .tab.on { background:#efe8d4; color:#2b2620; font-weight:bold; }
+  .tab.dead { background:#7e0d0d; color:#e8b9a8; }
+
+  /* ================= 正文排版 ================= */
+  .line {
+    margin:0 0 1.35em 0;
+    font-size:16.5px; line-height:2.05; letter-spacing:.06em;
+    white-space:pre-wrap; word-break:break-word;
+    opacity:0; transition:opacity 1.1s ease;
+  }
+  .line.show { opacity:1; }
+  .cursor {
+    display:inline-block; width:.5em; height:1em;
+    background:#5c5344; vertical-align:-.12em; margin-left:2px;
+    animation:blink 1s steps(1) infinite;
+  }
+  .cursor.red { background:#a01212; }
+  @keyframes blink { 50%{opacity:0} }
+
+  .nar  { color:#3a342a; }                       /* 叙述：墨 */
+  .inner{ color:#6b6152; }                       /* 内心：淡墨 */
+  .inner::before { content:"（"; color:#8a7c64; }
+  .inner::after  { content:"）"; color:#8a7c64; }
+  .red  { color:#a01212; }
+  .pale { color:#141210; }
+  .faint{ color:#9a8c70; }
+  .big  { font-size:21px; letter-spacing:.28em; }
+
+  /* 红笔批注（页边） */
+  .note {
+    font-family:"Kaiti SC","STKaiti","KaiTi","DFKai-SB",serif;
+    color:#a01212; font-size:16px; letter-spacing:.08em;
+    border-left:1px solid rgba(160,18,18,.4);
+    padding-left:1em; margin:1.4em 0 1.4em 1em;
+    transform:rotate(-.6deg);
+  }
+
+  /* ================= 词条 ================= */
+  .entry { margin:0 0 1.9em 0; break-inside:avoid; opacity:0; transition:opacity 1s; }
+  .entry.show { opacity:1; }
+  .entry .hw {
+    font-size:24px; font-weight:bold; color:#1c1813; letter-spacing:.12em;
+    display:flex; align-items:baseline; gap:.7em;
+  }
+  .entry .hw .py {
+    font-family:"Courier New",ui-monospace,monospace;
+    font-size:12.5px; font-weight:normal; color:#7a6b4f; letter-spacing:.1em;
+  }
+  .entry .df { font-size:15.5px; line-height:2.0; color:#40392d; margin-top:.25em; }
+  .entry .df .no { color:#8a7a5c; margin-right:.4em; }
+  .entry .df .eg { color:#6b6152; }
+  .entry .df .eg::before { content:"例："; color:#9a8c70; font-size:.86em; }
+  .entry.mine .hw { color:#a01212; }
+  .entry.mine .hw .py { color:#c06058; }
+
+  /* 双栏词条区（窄屏自动单栏） */
+  .cols { column-count:2; column-gap:2.6em; column-rule:1px solid rgba(60,45,25,.18); }
+  @media (max-width:680px) { .cols { column-count:1; } }
+
+  /* 凡例 */
+  .rule { margin:0 0 1.25em 0; font-size:16px; line-height:2.0; color:#3a342a; opacity:0; transition:opacity 1.1s; }
+  .rule.show { opacity:1; }
+  .rule .rno { color:#8a7a5c; margin-right:.6em; }
+  .rule .strike { color:#8a7c64; text-decoration:line-through; text-decoration-color:#a01212; text-decoration-thickness:1.5px; }
+  .rule .ins { color:#a01212; font-family:"Kaiti SC","STKaiti","KaiTi",serif; }
+
+  /* 文字特效 */
+  .squeeze { line-height:1.28 !important; letter-spacing:0 !important; }
+  .tofu { color:#4a4234; letter-spacing:.3em; }
+  .shaky { animation:shaky .8s ease-in-out infinite; display:inline-block; }
+  @keyframes shaky { 0%,100%{transform:translate(0,0)} 25%{transform:translate(.7px,-.9px)} 55%{transform:translate(-.9px,.6px)} 80%{transform:translate(.5px,.8px)} }
+  .bleed { text-decoration:line-through; text-decoration-color:#a01212; animation:strikeWob 3s ease-in-out infinite; }
+  @keyframes strikeWob { 0%,100%{text-decoration-color:rgba(160,18,18,.5)} 50%{text-decoration-color:rgba(190,25,20,1)} }
+
+  /* ================= 选项 ================= */
+  #choices { margin-top:2.4em; display:none; }
+  .choice {
+    display:block; width:100%; text-align:left;
+    background:rgba(255,252,240,.35); border:1px solid rgba(60,45,25,.4); color:#3a342a;
+    font-family:inherit; font-size:15.5px; letter-spacing:.1em; line-height:1.9;
+    padding:.85em 1.2em; margin:0 0 .9em 0; cursor:pointer;
+    transition:all .4s;
+  }
+  .choice:hover { border-color:#a01212; color:#7e0d0d; background:rgba(160,18,18,.05); }
+  .choice.red { border-color:rgba(160,18,18,.55); color:#a01212; }
+
+  /* ================= 满屏特效层 ================= */
+  .takeover {
+    position:fixed; inset:0; z-index:80; display:none;
+    align-items:center; justify-content:center; overflow:hidden;
+    background:#050505;
+  }
+  .takeover.on { display:flex; }
+  /* 满屏"伪" · 崩坏 */
+  #dieScreen { background:#0d0101; opacity:0; transition:opacity .5s; }
+  #dieScreen.show { opacity:1; }
+  #dieScreen .tile {
+    position:absolute; inset:-6%;
+    display:grid; grid-template-columns:repeat(8,1fr); grid-auto-rows:1fr;
+    pointer-events:none;
+  }
+  #dieScreen .tile i {
+    font-style:normal; color:#8e0f0f; font-size:min(10.5vw,80px);
+    display:flex; align-items:center; justify-content:center;
+    opacity:.16;
+  }
+  /* 普通格：随机亮灭抖动 */
+  #dieScreen .tile i.n { animation:dieFlk 2.1s steps(2) infinite; }
+  @keyframes dieFlk {
+    0%,86% { opacity:.14; transform:translate(0,0); }
+    90%    { opacity:.55; }
+    94%    { opacity:.04; transform:translate(2px,-1px); }
+    100%   { opacity:.14; transform:translate(0,0); }
+  }
+  /* 偏旁分离格：亻与为缓慢错开 */
+  #dieScreen .tile i.s span { display:inline-block; }
+  #dieScreen .tile i.s .r { animation:spR 3.6s ease-in-out infinite; color:#a81212; }
+  #dieScreen .tile i.s .w { animation:spW 3.6s ease-in-out infinite; }
+  @keyframes spR { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-.3em,.07em)} }
+  @keyframes spW { 0%,100%{transform:translate(0,0)} 50%{transform:translate(.32em,-.06em) rotate(2.5deg)} }
+  /* 人形格：只剩拉长摇摆的"亻"，像站着的人 */
+  #dieScreen .tile i.h .r {
+    display:inline-block; color:#b81212; transform-origin:50% 100%;
+    animation:humanSway 4.8s ease-in-out infinite;
+  }
+  @keyframes humanSway {
+    0%,100% { transform:scaleY(2.0) scaleX(.72) rotate(-3.5deg); }
+    50%     { transform:scaleY(2.3) scaleX(.68) rotate(3.5deg); }
+  }
+  /* 乱码格 */
+  #dieScreen .tile i.x { animation:tofuFlk 1.3s steps(3) infinite; }
+  @keyframes tofuFlk { 0%,70%{opacity:.1} 80%{opacity:.5} 90%{opacity:.02} 100%{opacity:.1} }
+  /* 中央巨字"伪"：偏旁撕裂错位 + 色差 + 高频抖 */
+  #dieScreen .huge {
+    position:relative; z-index:2; display:flex; line-height:1; font-weight:bold;
+    font-size:min(62vw, 62vh);
+    animation:hugeShake .13s steps(2) infinite;
+  }
+  @keyframes hugeShake { 0%{transform:translate(0,0)} 25%{transform:translate(-3px,2px)} 50%{transform:translate(3px,-2px)} 75%{transform:translate(-2px,-3px)} 100%{transform:translate(2px,3px)} }
+  #dieScreen .huge span {
+    display:inline-block; color:#c31414;
+    text-shadow:0 0 60px rgba(195,20,20,.55), 7px 0 2px rgba(255,60,40,.4), -7px 0 2px rgba(60,0,0,.55);
+  }
+  #dieScreen .huge .r { transform-origin:50% 100%; animation:hugeR 2.9s ease-in-out infinite; }
+  #dieScreen .huge .w { animation:hugeW 3.4s ease-in-out infinite; }
+  @keyframes hugeR {
+    0%,100% { transform:translate(0,0) scaleY(1); }
+    42%     { transform:translate(-.1em,.02em) scaleY(1.15) scaleX(.85); }
+    60%     { transform:translate(-.15em,0) scaleY(1.25) scaleX(.8); }
+  }
+  @keyframes hugeW {
+    0%,100% { transform:translate(0,0) rotate(0); }
+    50%     { transform:translate(.13em,-.02em) rotate(1.8deg); }
+  }
+  /* 撕裂横条：不定时横扫 */
+  #dieScreen .rip {
+    position:absolute; left:-4%; right:-4%; height:7%; z-index:3;
+    background:rgba(195,20,20,.14);
+    box-shadow:0 0 24px rgba(195,20,20,.25);
+    animation:ripMove 2.9s steps(1) infinite;
+  }
+  @keyframes ripMove {
+    0%   { top:14%; transform:translateX(-3%); opacity:.9; }
+    18%  { top:66%; transform:translateX(0); opacity:.5; }
+    34%  { top:32%; transform:translateX(4%); opacity:1; }
+    52%  { top:82%; transform:translateX(-2%); opacity:.4; }
+    68%  { top:47%; transform:translateX(2%); opacity:.8; }
+    84%  { top:8%;  transform:translateX(0); opacity:.3; }
+    100% { top:14%; transform:translateX(-3%); opacity:.9; }
+  }
+  #dieScreen .sub {
+    position:absolute; bottom:9%; left:0; right:0; z-index:4; text-align:center;
+    color:#d8a89a; font-size:15px; letter-spacing:.6em; text-indent:.6em;
+    font-family:"Kaiti SC","STKaiti","KaiTi",serif;
+    text-shadow:0 0 12px rgba(0,0,0,.8);
+  }
+
+  #flashFx { position:fixed; inset:0; z-index:90; pointer-events:none; opacity:0; background:#7e0d0d; }
+
+  /* 故障抖动（全书） */
+  body.breaking #book { animation:brk .4s steps(3) infinite; }
+  @keyframes brk { 0%{transform:translateX(-50%)} 33%{transform:translateX(calc(-50% - 5px))} 66%{transform:translateX(calc(-50% + 4px))} }
+
+  /* ================= 互动层 ================= */
+  .ix {
+    position:fixed; inset:0; z-index:70; display:flex;
+    align-items:center; justify-content:center; padding:20px;
+    background:rgba(8,6,4,.72);
+    opacity:0; transition:opacity .5s;
+  }
+  .ix.on { opacity:1; }
+  .ix-card {
+    width:min(640px,100%); max-height:88vh; overflow-y:auto; scrollbar-width:none;
+    background:#ece5d1; color:#2b2620;
+    box-shadow:0 24px 70px rgba(0,0,0,.8), inset 0 0 70px rgba(120,95,55,.12);
+    padding:2.2em 2.4em; border-radius:2px;
+  }
+  .ix-card::-webkit-scrollbar { display:none; }
+  .ix-tip { font-size:15px; line-height:2.0; color:#4a4234; margin-bottom:1.6em; letter-spacing:.05em; }
+  .ix-tip .rt { color:#a01212; font-family:"Kaiti SC","STKaiti","KaiTi",serif; }
+  .ix-btn {
+    background:none; border:1px solid rgba(60,45,25,.5); color:#3a342a;
+    font-family:inherit; font-size:14.5px; letter-spacing:.4em; text-indent:.4em;
+    padding:.8em 2.2em; cursor:pointer; transition:all .4s;
+  }
+  .ix-btn:hover { border-color:#a01212; color:#a01212; }
+  .ix-btn.danger { border-color:rgba(160,18,18,.6); color:#a01212; }
+  .ix-row { display:flex; gap:1em; justify-content:center; margin-top:1.8em; flex-wrap:wrap; }
+  .ix-toast {
+    margin-top:1.4em; text-align:center; min-height:1.6em;
+    color:#a01212; font-size:14.5px; letter-spacing:.08em;
+    font-family:"Kaiti SC","STKaiti","KaiTi",serif;
+  }
+  /* 校对 */
+  .pf-para { font-size:19px; line-height:2.3; letter-spacing:.06em; margin-bottom:1.2em; }
+  .pf-ch { cursor:pointer; padding:0 .05em; border-radius:2px; transition:background .25s; }
+  .pf-ch:hover { background:rgba(160,18,18,.12); }
+  .pf-ch.circled { position:relative; color:#a01212; }
+  .pf-ch.circled::after {
+    content:""; position:absolute; inset:-14% -22%;
+    border:1.6px solid #a01212; border-radius:50%;
+    transform:rotate(-4deg); opacity:.9;
+  }
+  .pf-ch.fixed { color:#1c6b34; }
+  .pf-count { text-align:right; font-size:12.5px; letter-spacing:.3em; color:#8a7a5c; margin-top:.8em; }
+  .pf-bar { display:flex; gap:.8em; justify-content:center; margin-top:1.4em; }
+  .pf-input, .fi-input {
+    background:none; border:none; border-bottom:1.5px solid #a01212;
+    color:#2b2620; font-family:"Kaiti SC","STKaiti","KaiTi",serif; font-size:22px;
+    text-align:center; width:2.2em; outline:none; padding:.1em;
+  }
+  .fi-input { width:min(320px,80%); font-size:19px; display:block; margin:1.4em auto 0; letter-spacing:.15em; }
+  .fi-target { font-size:20px; line-height:2.2; text-align:center; color:#1c1813; letter-spacing:.1em; margin:.6em 0; transition:opacity 1s; }
+  /* 删字 */
+  .dl-sentence { font-size:21px; line-height:2.4; text-align:center; letter-spacing:.08em; margin:.8em 0; }
+  .dl-ch { cursor:pointer; padding:0 .04em; transition:all .3s; }
+  .dl-ch:hover { color:#a01212; }
+  .dl-ch.gone { color:#a01212; text-decoration:line-through; text-decoration-thickness:2px; opacity:.55; }
+  /* 检字 */
+  .rd-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; margin:1em 0; }
+  .rd-ch {
+    aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+    border:1px solid rgba(60,45,25,.3); font-size:clamp(16px,4.6vw,24px); cursor:pointer;
+    color:#3a342a; transition:all .25s; background:rgba(255,252,240,.3);
+  }
+  .rd-ch:hover { border-color:#a01212; color:#a01212; }
+  .rd-ch.hit { background:#a01212; color:#ece5d1; border-color:#a01212; }
+  .rd-ch.miss { animation:rdMiss .3s; }
+  @keyframes rdMiss { 50%{background:rgba(160,18,18,.25)} }
+  .rd-slots { display:flex; gap:.6em; justify-content:center; margin-bottom:1.2em; }
+  .rd-slot {
+    width:2.2em; height:2.2em; border-bottom:2px solid #8a7a5c;
+    display:flex; align-items:center; justify-content:center;
+    font-size:24px; color:#a01212;
+  }
+
+  /* ================= 屏幕（封面/结局） ================= */
+  .screen {
+    position:fixed; inset:0; z-index:75;
+    background:#0b0a09; display:none; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+    padding:0 30px; color:#b9ac93;
+  }
+  .screen.on { display:flex; }
+  .screen h1 {
+    font-weight:normal; font-size:44px; letter-spacing:.8em; text-indent:.8em;
+    color:#d8cdb2; margin-bottom:.9em;
+  }
+  .screen .sub { font-size:13px; letter-spacing:.55em; text-indent:.55em; color:#6b5c44; margin-bottom:2.8em; }
+  .screen p { font-size:14.5px; line-height:2.5; letter-spacing:.12em; color:#8a7c64; max-width:480px; }
+  .screen .warn { margin-top:2.8em; font-size:11.5px; color:#4a4234; letter-spacing:.25em; line-height:2.3; }
+  #nameInput {
+    margin-top:2.4em; background:none; border:none; border-bottom:1px solid #4a4234;
+    color:#d8cdb2; font-family:"Kaiti SC","STKaiti","KaiTi",serif; font-size:20px; letter-spacing:.3em;
+    text-align:center; padding:.4em .8em; width:240px; outline:none;
+  }
+  #nameInput:focus { border-bottom-color:#a01212; }
+  .btn {
+    margin-top:3em; background:none; border:1px solid #4a4234; color:#b9ac93;
+    font-family:inherit; font-size:14px; letter-spacing:.55em; text-indent:.55em;
+    padding:1em 2.8em; cursor:pointer; transition:all .5s;
+  }
+  .btn:hover { border-color:#a01212; color:#d86a5a; }
+  .screen.end h1 { font-size:36px; }
+  .screen .endtag { font-size:12px; letter-spacing:.5em; color:#7e0d0d; margin-bottom:1.6em; }
+  #titleMemo { margin-top:1.6em; font-size:12px; color:#5c1420; letter-spacing:.2em; min-height:1.4em; }
+
+  /* 设置钮 */
+  #gear {
+    position:fixed; top:14px; right:16px; z-index:65;
+    background:none; border:1px solid #33302a; color:#6b6152;
+    font-family:inherit; font-size:12px; letter-spacing:.25em; text-indent:.25em;
+    padding:.5em 1em; cursor:pointer; transition:all .4s;
+  }
+  #gear:hover { color:#b9ac93; border-color:#6b6152; }
+
+  /* ================= 设置面板 ================= */
+  #setPanel {
+    position:fixed; inset:0; z-index:85; display:none;
+    align-items:center; justify-content:center;
+    background:rgba(8,6,4,.66);
+  }
+  #setPanel.on { display:flex; }
+  .sp-card {
+    width:min(400px, 88vw);
+    background:#ece5d1; color:#2b2620;
+    box-shadow:0 24px 70px rgba(0,0,0,.8), inset 0 0 60px rgba(120,95,55,.12);
+    padding:2em 2.2em; border-radius:2px; text-align:center;
+  }
+  .sp-title { font-size:14px; letter-spacing:.6em; text-indent:.6em; color:#6b5c44; margin-bottom:1.6em;
+    border-bottom:1px solid rgba(60,45,25,.3); padding-bottom:1em; }
+  .sp-btn {
+    display:block; width:100%; margin:0 0 .9em 0;
+    background:none; border:1px solid rgba(60,45,25,.45); color:#3a342a;
+    font-family:inherit; font-size:14px; letter-spacing:.3em; text-indent:.3em;
+    padding:.9em 1em; cursor:pointer; transition:all .35s;
+  }
+  .sp-btn:hover { border-color:#a01212; color:#a01212; }
+  .sp-btn.danger { border-color:rgba(160,18,18,.55); color:#a01212; }
+  .sp-btn.danger.confirm { background:#a01212; color:#ece5d1; }
+  .sp-note { font-size:11.5px; color:#8a7a5c; letter-spacing:.15em; line-height:2; margin-top:.6em; }
+
+  /* ================= 封面：词典扉页 ================= */
+  #titleScreen { background:#0b0a09; }
+  .tp-wrap { position:relative; }
+  .tp-page {
+    width:min(560px, 92vw); max-height:92vh; overflow-y:auto; scrollbar-width:none;
+    background:#ece5d1; color:#2b2620; text-align:left;
+    background-image:
+      linear-gradient(90deg, rgba(0,0,0,.08) 0%, transparent 5%, transparent 95%, rgba(0,0,0,.10) 100%),
+      radial-gradient(ellipse at 50% 0%, rgba(255,252,240,.5) 0%, transparent 60%);
+    box-shadow:0 24px 70px rgba(0,0,0,.8), inset 0 0 80px rgba(120,95,55,.13);
+    padding:2.6em 3em 2.2em; border-radius:2px;
+    transform:rotate(-.5deg);
+  }
+  .tp-page::-webkit-scrollbar { display:none; }
+  .tp-head {
+    display:flex; justify-content:space-between;
+    font-size:11.5px; letter-spacing:.3em; color:#7a6b4f;
+    border-bottom:1px solid rgba(60,45,25,.35); padding-bottom:.8em; margin-bottom:2em;
+  }
+  .tp-hw { font-size:clamp(46px, 11vw, 68px); font-weight:bold; letter-spacing:.08em; color:#1c1813; line-height:1.15; }
+  .tp-py {
+    font-family:"Courier New",ui-monospace,monospace; font-size:14px; font-weight:normal;
+    color:#7a6b4f; letter-spacing:.12em; margin-left:.6em; vertical-align:.35em;
+  }
+  .tp-df { font-size:15.5px; line-height:2.05; color:#40392d; margin-top:.9em; letter-spacing:.05em; }
+  .tp-df .no { color:#8a7a5c; margin-right:.4em; }
+  .tp-df .see { color:#a01212; }
+  .tp-eg {
+    margin-top:1.1em; font-family:"Kaiti SC","STKaiti","KaiTi",serif;
+    color:#a01212; font-size:16px; letter-spacing:.06em;
+  }
+  .tp-eg::before { content:"例："; color:#8a7a5c; font-size:.85em; }
+  .tp-form { display:flex; align-items:baseline; gap:1em; margin-top:2.4em; }
+  .tp-form label { font-size:13px; letter-spacing:.3em; color:#6b5c44; white-space:nowrap; }
+  #nameInput {
+    flex:1; margin-top:0; background:none; border:none; border-bottom:1.5px solid #8a7a5c;
+    color:#7e0d0d; font-family:"Kaiti SC","STKaiti","KaiTi",serif; font-size:21px; letter-spacing:.25em;
+    text-align:left; padding:.2em .3em; width:auto; outline:none;
+  }
+  #nameInput:focus { border-bottom-color:#a01212; }
+  #nameInput::placeholder { color:#a89a7d; font-size:15px; }
+  #titleMemo { margin-top:1em; font-size:12px; color:#a01212; letter-spacing:.2em; min-height:1.4em;
+    font-family:"Kaiti SC","STKaiti","KaiTi",serif; text-align:left; }
+  /* 红印章按钮 */
+  .tp-stamp {
+    position:absolute; right:2.2em; bottom:4.6em;
+    width:104px; height:104px; border-radius:50%;
+    border:3px solid rgba(160,18,18,.85); color:#a01212; background:none;
+    font-family:"Kaiti SC","STKaiti","KaiTi",serif; font-size:22px; letter-spacing:.1em; line-height:1.35;
+    cursor:pointer; transform:rotate(-9deg);
+    box-shadow:inset 0 0 0 1.5px rgba(160,18,18,.35);
+    opacity:.92; transition:all .35s;
+  }
+  .tp-stamp:hover { transform:rotate(-4deg) scale(1.06); opacity:1; background:rgba(160,18,18,.06); }
+  .tp-cip {
+    margin-top:2.6em; padding-top:1.2em; border-top:1px solid rgba(60,45,25,.25);
+    font-size:11px; line-height:2.2; letter-spacing:.18em; color:#8a7a5c;
+  }
+  .tp-cip .art4 { color:#a01212; }
+  /* 封面右侧的拇指索引 */
+  .tp-tabs {
+    position:absolute; right:-22px; top:12%; bottom:12%;
+    display:flex; flex-direction:column; justify-content:space-between; width:22px;
+  }
+  .tp-tabs i {
+    flex:1; margin:2px 0; display:flex; align-items:center; justify-content:center;
+    background:#d8cdb2; color:#6b5c44; font-style:normal; font-size:12px;
+    border-radius:0 3px 3px 0; box-shadow:2px 2px 5px rgba(0,0,0,.4);
+  }
+  .tp-tabs i.d { background:#7e0d0d; color:#e8b9a8; }
+  @media (max-width:640px) {
+    .tp-page { padding:2em 1.6em 1.8em; }
+    .tp-stamp { position:static; margin:1.6em 0 0 auto; display:block; width:92px; height:92px; font-size:19px; }
+    .tp-tabs { right:-14px; width:16px; }
+    .tp-tabs i { font-size:10px; }
+  }
+</style>
+</head>
+<body>
+<div id="lamp"></div>
+<div id="book">
+  <div id="page">
+    <div id="tabs"></div>
+    <div id="pageInner"></div>
+    <div id="pagenum"></div>
+    <div id="turn"><span>翻页</span></div>
+  </div>
+</div>
+<div id="grain"></div>
+<div id="flashFx"></div>
+<button id="gear">设 置</button>
+
+<!-- 设置面板 -->
+<div id="setPanel">
+  <div class="sp-card">
+    <div class="sp-title">设 置</div>
+    <button class="sp-btn" id="spSound">音 效 · 开</button>
+    <button class="sp-btn" id="spSuspend">临 时 搁 笔（存 档 · 稍 后 继 续）</button>
+    <button class="sp-btn danger" id="spRestart">中 途 搁 笔（不 存 档 · 回 封 面）</button>
+    <button class="sp-btn" id="spClose">继 续 修 订</button>
+    <div class="sp-note">临时搁笔可从本夜开头继续；<br>中途搁笔不保存进度。<br>但你已写下的结局，它都记得。</div>
+  </div>
+</div>
+
+<!-- 满屏"伪" -->
+<div class="takeover" id="dieScreen">
+  <div class="tile" id="dieTile"></div>
+  <div class="rip"></div>
+  <div class="huge"><span class="r">亻</span><span class="w">为</span></div>
+  <div class="sub" id="dieSub"></div>
+</div>
+
+<!-- 封面：词典扉页 -->
+<div class="screen on" id="titleScreen">
+  <div class="tp-wrap">
+    <div class="tp-page">
+      <div class="tp-head"><span>白烛出版社 · 内部校样</span><span>第九版（修订本）</span></div>
+      <div class="tp-hw">未收录<span class="tp-py">wèi shōu lù</span></div>
+      <div class="tp-df"><span class="no">①</span>动　未被词典收入；查无此词。</div>
+      <div class="tp-df"><span class="no">②</span>名　一种处境。见<span class="see">「修订者」</span>。</div>
+      <div class="tp-eg">你翻开这本书的时候，它已经知道你了。</div>
+      <div class="tp-form">
+        <label>修订者签名</label>
+        <input id="nameInput" maxlength="4" autocomplete="off" placeholder="（在此签名）" />
+      </div>
+      <div id="titleMemo"></div>
+      <div class="tp-cip">
+        委托方：白烛出版社　·　受托方：________<br>
+        <span class="art4">凡例第四条：「伪」字条修订完毕之前，不得合上书。</span><br>
+        含闪烁画面与突发声响 · 建议佩戴耳机 · 约三十五分钟<br>
+        你写下的每一个字，都会被它记住
+      </div>
+      <button class="tp-stamp" id="startBtn">开始<br>修订</button>
+    </div>
+    <div class="tp-tabs"><i>气</i><i>心</i><i>亻</i><i>伪</i><i class="d">伪</i></div>
+  </div>
+</div>
+
+<!-- 结局屏（通用） -->
+<div class="screen end" id="endScreen">
+  <div class="endtag" id="endTag"></div>
+  <h1 id="endTitle"></h1>
+  <p id="endBody"></p>
+  <button class="btn" id="endRestart">重 新 修 订</button>
+</div>
+
+<script>
+/* ============================================================
+   工具
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+let runToken = 0;
+const normStr = s => (s || '').replace(/[\s　，。！？、,.!?「」『』（）()：:；;·…—\-"]/g, '');
+
+const SAVE_KEY = 'wsl_dict_save';
+const store = {
+  get() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch (e) { return {}; } },
+  set(o) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(o)); } catch (e) {} },
+  bump(k) { const o = this.get(); o[k] = (o[k] || 0) + 1; this.set(o); },
+  merge(o) { const cur = this.get(); Object.assign(cur, o); this.set(cur); }
+};
+
+/* ---- 存档（临时搁笔） ---- */
+const CH_NAMES = ['凡 例', '第 壹 夜', '第 贰 夜', '第 叁 夜', '第 肆 夜', '第 伍 夜'];
+function saveCp(ch) { store.merge({ wsl_cp: { ch, name: NAME } }); }
+function clearCp() { const o = store.get(); delete o.wsl_cp; store.set(o); }
+
+/* ---- 彩蛋：文中可点的字 ---- */
+const EGGS_TOTAL = 5;
+function eggify(word, id, tip, fx) {
+  const els = pageInner.querySelectorAll('.line, .df, .rule');
+  for (const el of els) {
+    if (el.dataset.eggDone) continue;
+    if (!el.textContent.includes(word)) continue;
+    el.innerHTML = el.innerHTML.replace(word, '<span class="egg" data-egg="' + id + '">' + word + '</span>');
+    el.dataset.eggDone = '1';
+    const sp = el.querySelector('[data-egg="' + id + '"]');
+    if (!sp) return false;
+    sp.onclick = e => { e.stopPropagation(); triggerEgg(sp, id, tip, fx); };
+    return true;
+  }
+  return false;
+}
+function triggerEgg(sp, id, tip, fx) {
+  const o = store.get();
+  const found = o.eggs || {};
+  const first = !found[id];
+  sp.classList.add('found');
+  pen(2);
+  if (fx === 'heart') heart();
+  else if (fx === 'whisper') whisper(1.6);
+  else if (fx === 'shake') breaking(420);
+  else if (fx === 'lamp') lampFlicker();
+  const r = sp.getBoundingClientRect();
+  const p = document.createElement('div');
+  p.className = 'egg-pop';
+  p.textContent = (first ? '' : '（已读过）') + tip;
+  p.style.left = Math.max(10, Math.min(r.left - 20, innerWidth - 260)) + 'px';
+  p.style.top = Math.max(10, r.top - 46) + 'px';
+  document.body.appendChild(p);
+  setTimeout(() => p.remove(), 2150);
+  if (first) { found[id] = 1; store.merge({ eggs: found }); }
+}
+
+/* ============================================================
+   音效（WebAudio 全合成，无外部文件）
+   ============================================================ */
+let AC = null, muted = false, humNodes = null, droneNodes = null;
+function ac() {
+  if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+  if (AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function noiseBuf(dur) {
+  const c = ac(), b = c.createBuffer(1, c.sampleRate * dur, c.sampleRate);
+  const d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return b;
+}
+/* 低频嗡鸣：台灯电流声，常驻 */
+function humStart() {
+  if (muted || humNodes) return;
+  const c = ac();
+  const g = c.createGain(); g.gain.value = 0;
+  g.gain.linearRampToValueAtTime(0.028, c.currentTime + 2.5);
+  const o1 = c.createOscillator(); o1.type = 'sine'; o1.frequency.value = 46;
+  const o2 = c.createOscillator(); o2.type = 'sine'; o2.frequency.value = 46.7;
+  const lfo = c.createOscillator(); lfo.frequency.value = 0.13;
+  const lg = c.createGain(); lg.gain.value = 0.008;
+  lfo.connect(lg); lg.connect(g.gain);
+  o1.connect(g); o2.connect(g); g.connect(c.destination);
+  o1.start(); o2.start(); lfo.start();
+  humNodes = { g, o1, o2, lfo };
+}
+function humStop() {
+  if (!humNodes) return;
+  const c = ac(), h = humNodes; humNodes = null;
+  h.g.gain.linearRampToValueAtTime(0, c.currentTime + 0.8);
+  setTimeout(() => { try { h.o1.stop(); h.o2.stop(); h.lfo.stop(); } catch (e) {} }, 900);
+}
+/* 笔尖划纸（批注用） */
+function pen(strokes) {
+  if (muted) return;
+  const c = ac(), t0 = c.currentTime;
+  for (let i = 0; i < (strokes || 2); i++) {
+    const s = c.createBufferSource(); s.buffer = noiseBuf(0.09 + Math.random() * 0.06);
+    const f = c.createBiquadFilter(); f.type = 'bandpass';
+    f.frequency.value = i % 2 ? 2100 : 1650; f.Q.value = 2.5;
+    const g = c.createGain();
+    const t = t0 + i * (0.13 + Math.random() * 0.08);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.05, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+    s.connect(f); f.connect(g); g.connect(c.destination);
+    s.start(t);
+  }
+}
+/* 翻页 */
+function paper() {
+  if (muted) return;
+  const c = ac(), t = c.currentTime;
+  const s = c.createBufferSource(); s.buffer = noiseBuf(0.5);
+  const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 2800;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.09, t + 0.06);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
+  s.connect(f); f.connect(g); g.connect(c.destination);
+  s.start(t);
+}
+/* 钝击（合上书 / 盖章） */
+function thump(deep) {
+  if (muted) return;
+  const c = ac(), t = c.currentTime;
+  const o = c.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(deep ? 64 : 92, t);
+  o.frequency.exponentialRampToValueAtTime(deep ? 34 : 50, t + 0.4);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.22, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+  o.connect(g); g.connect(c.destination);
+  o.start(t); o.stop(t + 0.55);
+}
+/* 心跳：两下 */
+function heart() {
+  if (muted) return;
+  thump(false);
+  setTimeout(() => thump(true), 320);
+}
+/* UI 轻响 */
+function uiTick(err) {
+  if (muted) return;
+  const c = ac(), t = c.currentTime;
+  const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = err ? 196 : 620;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.045, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+  o.connect(g); g.connect(c.destination);
+  o.start(t); o.stop(t + 0.18);
+}
+/* 耳语（倒带的呼吸噪声） */
+function whisper(dur) {
+  if (muted) return;
+  const c = ac(), t = c.currentTime, d = dur || 2.2;
+  const s = c.createBufferSource(); s.buffer = noiseBuf(d); s.loop = true;
+  const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 1.6;
+  const lfo = c.createOscillator(); lfo.frequency.value = 3.1;
+  const lg = c.createGain(); lg.gain.value = 380;
+  lfo.connect(lg); lg.connect(f.frequency);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.05, t + d * 0.4);
+  g.gain.exponentialRampToValueAtTime(0.001, t + d);
+  s.connect(f); f.connect(g); g.connect(c.destination);
+  s.start(t); lfo.start(t); s.stop(t + d); lfo.stop(t + d);
+}
+/* 轰鸣：满屏"伪"的巨字低鸣 */
+function droneStart() {
+  if (muted || droneNodes) return;
+  const c = ac();
+  const g = c.createGain(); g.gain.value = 0;
+  g.gain.linearRampToValueAtTime(0.11, c.currentTime + 1.2);
+  const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 240;
+  const oscs = [];
+  [36, 36.6, 54.2, 72.9].forEach(fr => {
+    const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr;
+    o.connect(f); o.start(); oscs.push(o);
+  });
+  const lfo = c.createOscillator(); lfo.frequency.value = 0.5;
+  const lg = c.createGain(); lg.gain.value = 0.045;
+  lfo.connect(lg); lg.connect(g.gain); lfo.start();
+  f.connect(g); g.connect(c.destination);
+  droneNodes = { g, oscs, lfo };
+}
+function droneStop() {
+  if (!droneNodes) return;
+  const c = ac(), d = droneNodes; droneNodes = null;
+  d.g.gain.linearRampToValueAtTime(0, c.currentTime + 0.6);
+  setTimeout(() => { d.oscs.forEach(o => { try { o.stop(); } catch (e) {} }); try { d.lfo.stop(); } catch (e) {} }, 700);
+}
+function applyMute() {
+  $('#spSound').textContent = muted ? '音 效 · 关' : '音 效 · 开';
+  if (muted) { humStop(); droneStop(); } else if ($('#titleScreen').classList.contains('on') === false) { humStart(); }
+}
+$('#gear').onclick = () => { uiTick(false); $('#setPanel').classList.add('on'); };
+$('#spSound').onclick = () => { muted = !muted; applyMute(); uiTick(false); };
+$('#spClose').onclick = () => { uiTick(false); $('#setPanel').classList.remove('on'); };
+$('#setPanel').addEventListener('click', e => { if (e.target === $('#setPanel')) $('#setPanel').classList.remove('on'); });
+$('#spRestart').onclick = () => {
+  const b = $('#spRestart');
+  if (!b.classList.contains('confirm')) {
+    b.classList.add('confirm');
+    b.textContent = '再 点 一 次 · 确 认 搁 笔';
+    setTimeout(() => { b.classList.remove('confirm'); b.textContent = '中 途 搁 笔（不 存 档 · 回 封 面）'; }, 3200);
+  } else {
+    runToken++;
+    clearCp();
+    thump(true);
+    setTimeout(() => location.reload(), 350);
+  }
+};
+$('#spSuspend').onclick = () => {
+  /* 存档已由各夜开头写入，直接回封面 */
+  runToken++;
+  uiTick(false);
+  thump(true);
+  setTimeout(() => location.reload(), 350);
+};
+</script>
+
+<script>
+/* ============================================================
+   页面引擎：书页 / 打字机 / 词条 / 翻页
+   ============================================================ */
+const pageInner = $('#pageInner'), pageEl = $('#page'), turnEl = $('#turn');
+const TABS = ['气', '心', '亻', '伪', '未'];
+let tabState = 0;           /* 0..4：索引被"伪"侵蚀的程度 */
+let pageNo = 1, lyingPages = false;
+let NAME = '修订者';
+let typeSpeed = 26;
+
+function renderTabs() {
+  const box = $('#tabs'); box.innerHTML = '';
+  TABS.forEach((ch, i) => {
+    const d = document.createElement('div');
+    d.className = 'tab' + (i === tabState ? ' on' : '') + (i < tabState ? ' dead' : '');
+    d.textContent = i <= tabState && i !== tabState ? '伪' : ch;
+    if (i === tabState) d.textContent = ch;
+    box.appendChild(d);
+  });
+}
+function setFolio(left, right, red) {
+  let f = pageInner.querySelector('.folioLive');
+  if (!f) {
+    f = document.createElement('div');
+    f.id = 'folio'; f.className = 'folioLive';
+    f.innerHTML = '<span class="bk"></span><span class="bushou"></span>';
+    pageInner.prepend(f);
+  }
+  f.querySelector('.bk').textContent = left;
+  f.querySelector('.bushou').textContent = right;
+  f.classList.toggle('red', !!red);
+}
+function setPageNo(txt, lying) {
+  const p = $('#pagenum');
+  p.textContent = txt;
+  p.classList.toggle('lying', !!lying);
+}
+function pageNoNext() {
+  pageNo++;
+  if (!lyingPages) { setPageNo('— ' + pageNo + ' —'); return; }
+  const weird = ['— 第 ' + pageNo + ' 页 —', '— 第 0 页 —', '— 第 你 页 —', '— 第 ' + (pageNo + 1) + ' 页 —', '— 第 伪 页 —'];
+  setPageNo(pick(weird), Math.random() < 0.55);
+}
+function scrollPage() { pageInner.scrollTop = pageInner.scrollHeight; }
+
+/* 打字机一行 */
+function say(text, cls, opts) {
+  opts = opts || {};
+  return new Promise(res => {
+    const d = document.createElement('div');
+    d.className = 'line' + (cls ? ' ' + cls : '');
+    if (opts.squeeze) d.classList.add('squeeze');
+    pageInner.appendChild(d);
+    requestAnimationFrame(() => d.classList.add('show'));
+    const cur = document.createElement('span');
+    cur.className = 'cursor' + (opts.redCursor ? ' red' : '');
+    let i = 0;
+    const tk = runToken;
+    const sp = opts.speed || typeSpeed;
+    (function tick() {
+      if (tk !== runToken) { d.remove(); res(); return; }
+      if (i < text.length) {
+        d.textContent = text.slice(0, ++i);
+        d.appendChild(cur);
+        scrollPage();
+        const ch = text[i - 1];
+        const pause = '。！？…：—'.includes(ch) ? sp * 9 : ('，、；'.includes(ch) ? sp * 4.5 : sp);
+        setTimeout(tick, pause);
+      } else {
+        cur.remove();
+        setTimeout(res, opts.hold == null ? 420 : opts.hold);
+      }
+    })();
+  });
+}
+function curToken() { return runToken; }
+
+/* 红笔批注 */
+function rednote(text) {
+  return new Promise(res => {
+    const d = document.createElement('div');
+    d.className = 'line note';
+    pageInner.appendChild(d);
+    requestAnimationFrame(() => d.classList.add('show'));
+    pen(Math.min(6, Math.ceil(text.length / 3)));
+    const cur = document.createElement('span'); cur.className = 'cursor red';
+    let i = 0;
+    (function tick() {
+      if (i < text.length) {
+        d.textContent = text.slice(0, ++i);
+        d.appendChild(cur); scrollPage();
+        setTimeout(tick, 85);
+      } else { cur.remove(); setTimeout(res, 600); }
+    })();
+  });
+}
+
+/* 词条 */
+function entry(hw, py, defs, opts) {
+  opts = opts || {};
+  return new Promise(async res => {
+    const wrap = opts.cols || pageInner;
+    const d = document.createElement('div');
+    d.className = 'entry' + (opts.mine ? ' mine' : '');
+    const hwHtml = '<div class="hw">' + hw + (py ? '<span class="py">' + py + '</span>' : '') + '</div>';
+    d.innerHTML = hwHtml;
+    wrap.appendChild(d);
+    requestAnimationFrame(() => d.classList.add('show'));
+    scrollPage();
+    await sleep(500);
+    for (let k = 0; k < defs.length; k++) {
+      const df = defs[k];
+      const line = document.createElement('div');
+      line.className = 'df';
+      d.appendChild(line);
+      const no = defs.length > 1 ? '<span class="no">' + '①②③④⑤⑥'[k] + '</span>' : '';
+      const isEg = df.startsWith('例：');
+      const body = isEg ? df.slice(3) : df;
+      const html = isEg ? '<span class="eg"></span>' : no + '<span class="dt"></span>';
+      line.innerHTML = html;
+      const tgt = line.querySelector('.eg') || line.querySelector('.dt');
+      const cur = document.createElement('span');
+      cur.className = 'cursor' + (opts.mine ? ' red' : '');
+      let i = 0;
+      await new Promise(r2 => {
+        (function tick() {
+          if (i < body.length) {
+            tgt.textContent = body.slice(0, ++i);
+            tgt.appendChild(cur); scrollPage();
+            const ch = body[i - 1];
+            const pause = '。！？…'.includes(ch) ? 200 : ('，、；：'.includes(ch) ? 90 : (opts.defSpeed || 24));
+            setTimeout(tick, pause);
+          } else { cur.remove(); setTimeout(r2, 300); }
+        })();
+      });
+    }
+    await sleep(opts.hold == null ? 350 : opts.hold);
+    res();
+  });
+}
+
+/* 翻页 */
+function flip(folioL, folioR, red) {
+  return new Promise(async res => {
+    paper();
+    pageEl.classList.add('flip-out');
+    await sleep(820);
+    pageInner.innerHTML = '';
+    setFolio(folioL, folioR, red);
+    pageNoNext();
+    pageEl.classList.remove('flip-out');
+    pageEl.classList.add('flip-in');
+    await sleep(40);
+    pageEl.classList.remove('flip-in');
+    await sleep(820);
+    res();
+  });
+}
+/* 等玩家点翻页角 */
+function waitTurn() {
+  return new Promise(res => {
+    turnEl.style.display = 'block';
+    const h = () => { turnEl.style.display = 'none'; turnEl.removeEventListener('click', h); uiTick(false); res(); };
+    turnEl.addEventListener('click', h);
+  });
+}
+
+/* 选项 */
+function choices(list) {
+  return new Promise(res => {
+    let box = $('#choices');
+    if (!box) { box = document.createElement('div'); box.id = 'choices'; pageInner.appendChild(box); }
+    box.innerHTML = ''; box.style.display = 'block';
+    list.forEach((c, i) => {
+      const b = document.createElement('button');
+      b.className = 'choice' + (c.red ? ' red' : '');
+      b.innerHTML = c.t;
+      b.onclick = () => { uiTick(false); box.style.display = 'none'; box.querySelectorAll('.choice').forEach(x => x.remove()); res(i); };
+      box.appendChild(b);
+    });
+    scrollPage();
+  });
+}
+
+/* 闪烁 */
+function flash(color, ms) {
+  return new Promise(res => {
+    const f = $('#flashFx');
+    f.style.background = color || '#7e0d0d';
+    f.style.transition = 'none'; f.style.opacity = '.9';
+    requestAnimationFrame(() => {
+      f.style.transition = 'opacity ' + (ms || 700) + 'ms';
+      f.style.opacity = '0';
+      setTimeout(res, ms || 700);
+    });
+  });
+}
+function lampFlicker() {
+  const l = $('#lamp');
+  l.classList.remove('flicker'); void l.offsetWidth; l.classList.add('flicker');
+}
+/* 渗血渍 */
+function stain(x, y, o) {
+  pageEl.style.setProperty('--stain-x', x + '%');
+  pageEl.style.setProperty('--stain-y', y + '%');
+  pageEl.style.setProperty('--stain-o', o);
+}
+/* 满屏"伪"：崩坏字墙 */
+let glitchTimer = null;
+function glitchStart() {
+  if (muted || glitchTimer) return;
+  glitchTimer = setInterval(() => {
+    if (Math.random() < 0.55) {
+      const c = ac(), t = c.currentTime;
+      const s = c.createBufferSource(); s.buffer = noiseBuf(0.06);
+      const f = c.createBiquadFilter(); f.type = 'bandpass';
+      f.frequency.value = 900 + Math.random() * 2800; f.Q.value = 1;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.06, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      s.connect(f); f.connect(g); g.connect(c.destination);
+      s.start(t);
+    }
+  }, 150);
+}
+function glitchStop() { clearInterval(glitchTimer); glitchTimer = null; }
+function buildDie() {
+  const t = $('#dieTile'); t.innerHTML = '';
+  for (let i = 0; i < 64; i++) {
+    const el = document.createElement('i');
+    const r = Math.random();
+    if (r < 0.48) { el.className = 'n'; el.textContent = '伪'; }
+    else if (r < 0.72) { el.className = 's'; el.innerHTML = '<span class="r">亻</span><span class="w">为</span>'; }
+    else if (r < 0.88) { el.className = 'h'; el.innerHTML = '<span class="r">亻</span>'; }
+    else { el.className = 'x'; el.textContent = Math.random() < 0.5 ? '□' : '伪'; }
+    const d1 = (Math.random() * 3).toFixed(2) + 's';
+    el.style.animationDelay = d1;
+    el.querySelectorAll('span').forEach(sp => { sp.style.animationDelay = (Math.random() * 3).toFixed(2) + 's'; });
+    t.appendChild(el);
+  }
+}
+async function dieScreen(subText, ms) {
+  buildDie();
+  $('#dieSub').textContent = subText || '';
+  const d = $('#dieScreen');
+  d.classList.add('on');
+  requestAnimationFrame(() => d.classList.add('show'));
+  droneStart(); glitchStart();
+  await sleep(ms || 2600);
+  d.classList.remove('show');
+  droneStop(); glitchStop();
+  await sleep(520);
+  d.classList.remove('on');
+  await sleep(80);
+}
+function breaking(ms) {
+  document.body.classList.add('breaking');
+  setTimeout(() => document.body.classList.remove('breaking'), ms || 500);
+}
+</script>
+
+<script>
+/* ============================================================
+   互动：全部发生在字上
+   ============================================================ */
+function ixLayer(html) {
+  const layer = document.createElement('div');
+  layer.className = 'ix';
+  layer.innerHTML = '<div class="ix-card">' + html + '</div>';
+  document.body.appendChild(layer);
+  requestAnimationFrame(() => layer.classList.add('on'));
+  return layer;
+}
+function ixClose(layer, val, res, fast) {
+  layer.classList.remove('on');
+  setTimeout(() => { layer.remove(); res(val); }, fast ? 0 : 500);
+}
+function ixToast(layer, text, ms) {
+  let t = layer.querySelector('.ix-toast');
+  if (!t) { t = document.createElement('div'); t.className = 'ix-toast'; layer.querySelector('.ix-card').appendChild(t); }
+  t.textContent = text;
+  clearTimeout(t._h);
+  t._h = setTimeout(() => { t.textContent = ''; }, ms || 2800);
+}
+
+/* ---- 校对：圈出错字，写出正确的字 ---- */
+function playProofread(para, errors, opts, tk) {
+  return new Promise(res => {
+    const layer = ixLayer(
+      '<div class="ix-tip">' + (opts.tip || '圈出错字，写出正确的字。') +
+        (opts.redtip ? '<br><span class="rt">' + opts.redtip + '</span>' : '') + '</div>' +
+      '<div class="pf-para"></div>' +
+      '<div class="pf-bar" style="display:none">' +
+        '<input class="pf-input" maxlength="1" autocomplete="off" placeholder="？" />' +
+        '<button class="ix-btn">改</button>' +
+      '</div>' +
+      '<div class="pf-count"></div>' +
+      '<div class="ix-toast"></div>'
+    );
+    paper();
+    const errs = errors.map(e => ({ ...e, fixed: false }));
+    const paraEl = layer.querySelector('.pf-para');
+    const bar = layer.querySelector('.pf-bar');
+    const input = layer.querySelector('.pf-input');
+    const countEl = layer.querySelector('.pf-count');
+    let selected = null, wrongs = 0, done = false;
+
+    [...para].forEach((ch, i) => {
+      const s = document.createElement('span');
+      s.className = 'pf-ch'; s.textContent = ch;
+      s.onclick = () => {
+        if (done) return;
+        const err = errs.find(e => e.at === i);
+        if (err && err.fixed) return;
+        paraEl.querySelectorAll('.pf-ch').forEach(x => x.classList.remove('circled'));
+        s.classList.add('circled');
+        selected = i;
+        bar.style.display = 'flex';
+        input.value = '';
+        setTimeout(() => input.focus(), 60);
+        uiTick(false);
+      };
+      paraEl.appendChild(s);
+    });
+    function paint() {
+      const left = errs.filter(e => !e.fixed).length;
+      countEl.textContent = left === 0 ? '本校 无误' : '余 ' + left + ' 处';
+    }
+    paint();
+    const MISS = ['「那个字没有错。你只是想改掉它。」', '「别乱圈。红笔不是这么用的。」', '「圈错一个字，它就多记住你一笔。」'];
+    const WRONGC = ['「改错了。重写。」', '「你的字，在抖哦。」'];
+    function submit() {
+      if (done || selected === null) return;
+      const i = selected, val = normStr(input.value);
+      if (!val) return;
+      const err = errs.find(e => e.at === i);
+      const chEl = paraEl.children[i];
+      if (err && !err.fixed && val === err.right) {
+        err.fixed = true;
+        chEl.textContent = err.right;
+        chEl.classList.remove('circled'); chEl.classList.add('fixed');
+        pen(2);
+        bar.style.display = 'none'; selected = null;
+        paint();
+        if (errs.every(e => e.fixed)) { done = true; ixClose(layer, { wrongs }, res); }
+      } else if (err && !err.fixed) {
+        wrongs++; input.value = '';
+        ixToast(layer, pick(WRONGC));
+        if (wrongs >= 2) breaking(450);
+      } else {
+        wrongs++;
+        chEl.classList.remove('circled');
+        bar.style.display = 'none'; selected = null;
+        ixToast(layer, pick(MISS), 3000);
+        uiTick(true);
+        if (wrongs >= 2) breaking(450);
+      }
+    }
+    layer.querySelector('.pf-bar .ix-btn').onclick = submit;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+    const iv = setInterval(() => {
+      if (tk !== runToken) { clearInterval(iv); done = true; layer.remove(); res({ wrongs: 0 }); }
+    }, 300);
+  });
+}
+
+/* ---- 删字：点掉一个字，句意改写，成真 ---- */
+function playDelete(sentence, tipText, tk) {
+  return new Promise(res => {
+    const layer = ixLayer(
+      '<div class="ix-tip">' + (tipText || '这句话里，多了一个字。<br>点掉它。删哪个，你说了算。<br><span class="rt">「想清楚。删掉的，会成真。」</span>') + '</div>' +
+      '<div class="dl-sentence"></div>' +
+      '<div class="ix-row" style="display:none">' +
+        '<button class="ix-btn danger dl-ok">删</button>' +
+        '<button class="ix-btn dl-no">再想想</button>' +
+      '</div>'
+    );
+    const sentEl = layer.querySelector('.dl-sentence');
+    const actEl = layer.querySelector('.ix-row');
+    let selected = null, done = false;
+    [...sentence].forEach((ch, i) => {
+      const s = document.createElement('span');
+      s.className = 'dl-ch'; s.textContent = ch;
+      s.onclick = () => {
+        if (done) return;
+        sentEl.querySelectorAll('.dl-ch').forEach(x => x.classList.remove('gone'));
+        s.classList.add('gone');
+        selected = i;
+        actEl.style.display = 'flex';
+        uiTick(false);
+      };
+      sentEl.appendChild(s);
+    });
+    layer.querySelector('.dl-ok').onclick = () => {
+      if (done || selected === null) return;
+      done = true;
+      const ch = sentence[selected];
+      pen(4);
+      setTimeout(() => ixClose(layer, ch, res), 1100);
+    };
+    layer.querySelector('.dl-no').onclick = () => {
+      if (done) return;
+      sentEl.querySelectorAll('.dl-ch').forEach(x => x.classList.remove('gone'));
+      selected = null; actEl.style.display = 'none';
+    };
+    const iv = setInterval(() => {
+      if (tk !== runToken) { clearInterval(iv); layer.remove(); res('不'); }
+    }, 300);
+  });
+}
+
+/* ---- 填空：写下一个词，它会被引用 ---- */
+function playFill(promptHtml, hint, maxlen, tk) {
+  return new Promise(res => {
+    const layer = ixLayer(
+      '<div class="ix-tip">' + promptHtml + '</div>' +
+      (hint ? '<div class="fi-target">' + hint + '</div>' : '') +
+      '<input class="fi-input" maxlength="' + (maxlen || 8) + '" autocomplete="off" placeholder="（写在这里）" />' +
+      '<div class="ix-row"><button class="ix-btn fi-ok">写 好 了</button></div>' +
+      '<div class="ix-toast"></div>'
+    );
+    const input = layer.querySelector('.fi-input');
+    let done = false;
+    function submit() {
+      if (done) return;
+      const v = normStr(input.value).slice(0, maxlen || 8);
+      if (!v) { ixToast(layer, '「空着，也算一种回答。但它要的是字。」', 3000); return; }
+      done = true;
+      pen(3);
+      ixClose(layer, v, res);
+    }
+    layer.querySelector('.fi-ok').onclick = submit;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+    setTimeout(() => input.focus(), 400);
+    const iv = setInterval(() => {
+      if (tk !== runToken) { clearInterval(iv); layer.remove(); res(''); }
+    }, 300);
+  });
+}
+
+/* ---- 默写：看一眼，盖住，凭记忆写出来 ---- */
+function playDictation(sentence, sec, tk) {
+  return new Promise(res => {
+    const layer = ixLayer(
+      '<div class="ix-tip">看着这句话。只看 ' + sec + ' 秒。<br><span class="rt">「记进去。它会检查的。」</span></div>' +
+      '<div class="fi-target"></div>' +
+      '<input class="fi-input" maxlength="20" autocomplete="off" placeholder="（默写出来）" style="display:none" />' +
+      '<div class="ix-row" style="display:none"><button class="ix-btn fi-ok">写 好 了</button></div>'
+    );
+    const target = layer.querySelector('.fi-target');
+    const input = layer.querySelector('.fi-input');
+    const act = layer.querySelector('.ix-row');
+    target.textContent = sentence;
+    let done = false;
+    setTimeout(() => {
+      target.style.opacity = '0';
+      paper();
+      setTimeout(() => {
+        target.style.display = 'none';
+        input.style.display = 'block';
+        act.style.display = 'flex';
+        setTimeout(() => input.focus(), 100);
+      }, 1000);
+    }, sec * 1000);
+    function submit() {
+      if (done) return;
+      done = true;
+      const ok = normStr(input.value) === normStr(sentence);
+      uiTick(!ok);
+      ixClose(layer, ok, res);
+    }
+    layer.querySelector('.fi-ok').onclick = submit;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+    const iv = setInterval(() => {
+      if (tk !== runToken) { clearInterval(iv); layer.remove(); res(false); }
+    }, 300);
+  });
+}
+
+/* ---- 部首检字：从字堆里捡出它要的字 ---- */
+function playRadical(target, pool, tipHtml, tk) {
+  return new Promise(res => {
+    const slots = [...target].map(() => '<div class="rd-slot"></div>').join('');
+    const layer = ixLayer(
+      '<div class="ix-tip">' + tipHtml + '</div>' +
+      '<div class="rd-slots">' + slots + '</div>' +
+      '<div class="rd-grid"></div>' +
+      '<div class="ix-toast"></div>'
+    );
+    const grid = layer.querySelector('.rd-grid');
+    const slotEls = layer.querySelectorAll('.rd-slot');
+    /* 打乱字池，确保目标字都在 */
+    const chars = [...new Set(pool.split(''))];
+    [...target].forEach(c => { if (!chars.includes(c)) chars.push(c); });
+    const shuffled = chars.sort(() => Math.random() - .5);
+    let idx = 0, done = false;
+    shuffled.forEach(ch => {
+      const d = document.createElement('div');
+      d.className = 'rd-ch'; d.textContent = ch;
+      d.onclick = () => {
+        if (done || d.classList.contains('hit')) return;
+        if (ch === target[idx]) {
+          d.classList.add('hit');
+          slotEls[idx].textContent = ch;
+          pen(2);
+          idx++;
+          if (idx >= target.length) { done = true; setTimeout(() => ixClose(layer, true, res), 900); }
+        } else {
+          d.classList.add('miss');
+          setTimeout(() => d.classList.remove('miss'), 350);
+          uiTick(true);
+          ixToast(layer, pick(['「不是这个。它认得自己的字。」', '「捡错了。重来。」']), 2200);
+        }
+      };
+      grid.appendChild(d);
+    });
+    const iv = setInterval(() => {
+      if (tk !== runToken) { clearInterval(iv); layer.remove(); res(false); }
+    }, 300);
+  });
+}
+</script>
+
+<script>
+/* ============================================================
+   剧情
+   ============================================================ */
+let userDeathDef = '';   /* 玩家为"伪"写的释义，第五夜被引用 */
+
+async function seqRules(tk) {
+  setFolio('白烛词典 · 第九版', '凡 例');
+  setPageNo('— 1 —');
+  await say('委托方：白烛出版社　·　受托方：' + NAME, 'faint', { hold: 700 });
+  await say('修订工作凡例如下。请逐条读完。逐条。', 'nar');
+  const rules = [
+    ['一', '修订时间：每晚零时开始，鸡鸣前停笔。'],
+    ['二', '只修订，不增删。词条以本书为准，以本书为唯一依据。'],
+    ['三', '如遇目录未收之词条，照常修订，不得跳过，不得上报，不得声张。'],
+    ['四', '「伪」字条修订完毕之前，修订者不得合上书。'],
+  ];
+  for (const [no, txt] of rules) {
+    const d = document.createElement('div');
+    d.className = 'rule';
+    d.innerHTML = '<span class="rno">' + no + '</span>' + txt;
+    pageInner.appendChild(d);
+    requestAnimationFrame(() => d.classList.add('show'));
+    scrollPage();
+    await sleep(900);
+  }
+  const d5 = document.createElement('div');
+  d5.className = 'rule';
+  d5.innerHTML = '<span class="rno">五</span><span id="rule5a">修订者须为本人。</span>';
+  pageInner.appendChild(d5);
+  requestAnimationFrame(() => d5.classList.add('show'));
+  scrollPage();
+  await sleep(2200);
+  /* 红笔自己改动第五条 */
+  pen(3);
+  $('#rule5a').innerHTML = '<span class="strike">修订者须为本人。</span>';
+  await sleep(1400);
+  pen(4);
+  const ins = document.createElement('span');
+  ins.className = 'ins';
+  d5.appendChild(ins);
+  const t = '　修订者须读完。';
+  for (let i = 0; i < t.length; i++) { ins.textContent += t[i]; scrollPage(); await sleep(110); }
+  await sleep(800);
+  await rednote('第五条不是我改的。是你签的名字改的。');
+  eggify('本人', 'e1', '你还在确认，自己是不是本人。', 'whisper');
+  await waitTurn();
+}
+
+async function seqNight1(tk) {
+  await flip('白烛词典 · 第九版', '气 部');
+  await say('第壹夜。', 'faint big', { hold: 900 });
+  await say('台灯很稳。词典比想象中旧，纸页发黄，像在水里泡过又晾干。', 'nar');
+  await say('你按凡例先校「气」部。都是熟字，释义也规矩。', 'nar');
+  const col1 = document.createElement('div'); col1.className = 'cols'; pageInner.appendChild(col1);
+  await entry('气', 'qì', ['没有一定的形状、体积，能自由散布的物体。', '呼吸：～息。', '自然界寒、暖、阴、晴等现象：天～。'], { cols: col1 });
+  await entry('氛', 'fēn', ['气；气象。', '周围的情调或景象：气～。'], { cols: col1 });
+  await entry('邻', 'lín', ['住处接近的人家。', '你家对门那位。上周开始，他和你同时出门，同时关灯。', '你还没见过他。也许见过。'], { cols: col1 });
+  await sleep(600);
+  await say('很顺利。直到你翻到这一页的最底下——', 'nar');
+  await entry('帘', 'lián', ['遮蔽门窗的器物。', '你左手边那一幅，米白色，第三道褶里夹着一根长头发。', '例：你今晚没有拉开过它。它也一直，没有动过。'], { mine: true, defSpeed: 34 });
+  eggify('长头发', 'e2', '你数了数。不是一根。是四根。', 'heart');
+  heart();
+  await say('你抬头看了一眼左手边。', 'inner');
+  await say('米白色。第三道褶。你从来不记得自己注意过这些。', 'inner');
+  await rednote('别停。校对员的第一课：纸上的东西，比窗外的诚实。');
+  await sleep(500);
+  /* 校对互动 */
+  const para = '修订者每晚零时开始工作，先擦静桌面，再翻开词典。若发现目录未收的词目，照常修订，不得跳国，也不得向任何人题起。';
+  const errs = [
+    { at: para.indexOf('静'), right: '净' },
+    { at: para.indexOf('国'), right: '过' },
+    { at: para.indexOf('题'), right: '提' },
+  ];
+  await say('墨迹未干的一页。它要你动手。', 'faint');
+  const r1 = await playProofread(para, errs, { redtip: '「改错的每一笔，我都替你记着。」' }, tk);
+  if (r1.wrongs === 0) await rednote('一处没错。你的手比我稳。');
+  else await rednote('错了 ' + r1.wrongs + ' 笔。没关系。我记性好，替你记两笔。');
+  await say('你合上红笔的时候，发现凡例那一页的字迹变了。', 'nar');
+  await say('第三条后面，多了一行小字，墨色陈旧，像一直就在那里：', 'nar');
+  await say('「——包括写你的那一条。」', 'red big', { redCursor: true, hold: 1200 });
+  await waitTurn();
+}
+
+async function seqNight2(tk) {
+  lyingPages = true;
+  await flip('白烛词典 · 第九版', '心 部');
+  await say('第贰夜。', 'faint big', { hold: 900 });
+  await say('你跟自己说，昨晚是太累了。字就是字。', 'nar');
+  await say('「心」部的字都很温顺。你校得很快。', 'nar');
+  const col2 = document.createElement('div'); col2.className = 'cols'; pageInner.appendChild(col2);
+  await entry('忘', 'wàng', ['不记得。', '一种自我保护。见「自我保护」。', '（本词条待补。）'], { cols: col2 });
+  await entry('念', 'niàn', ['惦记，常常地想。', '读：～书。', '你心里现在有的那一种。'], { cols: col2 });
+  await sleep(500);
+  await entry('惧', 'jù', ['害怕。', '修订者于此刻感到的。', '例：他的手停在半空，已经停了十一秒。十二秒。'], { mine: true, defSpeed: 40 });
+  heart();
+  breaking(400);
+  await say('你把笔放下。词典安静地摊着，纸页微微起伏——', 'nar');
+  await say('像呼吸。', 'red', { hold: 1100 });
+  eggify('呼吸', 'e3', '别跟着它的节奏走。', 'lamp');
+  await rednote('数错了可不行。刚才明明是十三秒。');
+  await say('然后你看到了那句话。它不在词条里，它横在两栏之间，像一句批语：', 'nar');
+  /* 删字互动 */
+  const del = await playDelete('他不会在第叁夜写下你的名字。', null, tk);
+  if (del === '不') {
+    await flash('#3a0808', 800);
+    breaking(600);
+    await say('墨迹散开，又重新聚拢。', 'nar');
+    await say('「他会在第叁夜写下你的名字。」', 'red big', { redCursor: true, hold: 1400 });
+    await rednote('是你自己删的。删掉的，会成真。');
+  } else {
+    await say('你删掉了「' + del + '」。句子读不通了。', 'nar');
+    await sleep(800);
+    pen(5);
+    await rednote('删错了。那句不算。——这句才算：');
+    await say('「他会在第叁夜写下你的名字。」', 'red big', { redCursor: true, hold: 1400 });
+    await say('你翻回去找原来的句子。「不」字的位置只剩一个浅坑，像被橡皮连纸擦去了一层。', 'nar');
+  }
+  await say('页码开始不对了。', 'faint');
+  await say('你明明只翻了十几页，页脚却写着第 0 页。再翻一页，第 你 页。', 'nar');
+  await waitTurn();
+}
+</script>
+
+<script>
+async function seqNight3(tk) {
+  await flip('白烛词典 · 第九版', '亻 部');
+  await say('第叁夜。', 'faint big', { hold: 900 });
+  await say('他说到做到。这一夜的检字表上，有你的名字。', 'nar');
+  await say('不是印上去的。是手写的，笔迹和你的一模一样。', 'nar');
+  whisper(2.4);
+  await say('「亻」部之后，检字表变成了一页散字。它要你把你的名字，亲手捡回来。', 'nar');
+  /* 部首检字：捡出玩家名字 */
+  const pool = '休何作你他住信停候假偷偏做傍傀傻僵僻儒儡儿允兄充光先克免入全共兵其典册再农冠冤冥冬冯冲决况凄准凉减凑凝几凡凤凭凯凰凳刁刃分切刊刑列则剂刻刺刷制剑';
+  await playRadical(NAME, pool, '从散字里，捡出你的名字。<br>按顺序。一笔都不许错。<br><span class="rt">「自己的字，总该认得。」</span>', tk);
+  pen(6);
+  await say('检字表合拢了。散字各归其位，只留下你的名字悬在页首，像一枚新铸的活字。', 'nar');
+  await entry(NAME, '', ['人名。见「伪」。', '上周起，有两位同时使用这个名字。作息相同，笔迹相同，连签名的顿笔都相同。', '其中一位正在读这一行。另一位——已经读完了。'], { mine: true, defSpeed: 38 });
+  eggify('另一位', 'e4', '他也在找你。', 'shake');
+  heart();
+  await say('释义的最后一笔还没干。你看着那个「吸」字的最后一捺慢慢洇开。', 'nar');
+  await say('它在实时更新。', 'red', { hold: 1000 });
+  await rednote('别怕。词典收录万物，你只是排得靠后了一点。');
+  /* 默写 */
+  await say('页脚浮起一行小字：', 'faint');
+  const ok = await playDictation('我是本人。', 8, tk);
+  if (ok) {
+    await rednote('写得对。可惜，主语错了。');
+    await say('你默写对了。那一行字却当你的面改了：', 'nar');
+  } else {
+    await rednote('错了。连自己是不是本人，都记不住。');
+    await say('你默写错了。那一行字慢慢显影，纠正你：', 'nar');
+  }
+  await say('「他不是本人。」', 'red big', { redCursor: true, hold: 1300 });
+  lampFlicker();
+  breaking(500);
+  await say('台灯闪了一下。房间比昨晚暗了一点——你后来发现不是灯暗了，是词典亮了。', 'nar');
+  await say('纸页白得发青，像泡涨的什么。', 'nar', { hold: 900 });
+  await waitTurn();
+}
+
+async function seqNight4(tk) {
+  await flip('白烛词典 · 第九版', '伪 部', true);
+  await say('第肆夜。', 'faint big', { hold: 900 });
+  await say('「亻」部之后，检字表上多出一个部首。正文里没有它的位置——「伪」部，只有一页。', 'nar');
+  await say('然后你翻到了它。凡例第四条说的那一条。', 'nar');
+  await entry('伪', 'wěi', ['假，不真实（旧说，拟删）。', '像，但不是。', '见「' + NAME + '」。'], { mine: true, defSpeed: 40 });
+  eggify('像，但不是。', 'e5', '它学你，已经学了七版。', 'whisper');
+  heart();
+  await say('你提起红笔，想删掉第二义。', 'nar');
+  await sleep(900);
+  await say('笔尖离纸还有半寸，那一页的纸忽然绷紧，像鼓面。你戳不下去。', 'nar');
+  await rednote('不许删。词典里，「伪」只有一个写法。');
+  await say('它要你补一条新义。用你自己的字。', 'nar');
+  /* 填空：为"伪"写释义 */
+  userDeathDef = await playFill(
+    '为「伪」补一条释义。用你自己的字。<br><span class="rt">「写准一点。这条释义，以后要印的。」</span>',
+    '伪　wěi　④＿＿＿＿＿＿', 8, tk
+  ) || '睡着';
+  pen(8);
+  await entry('伪', 'wěi', ['假，不真实（旧说，已删）。', '像，但不是。', '见「' + NAME + '」。', userDeathDef + '。（修订者补。两副笔迹，核对无误。）'], { mine: true, defSpeed: 36 });
+  await sleep(1200);
+  /* 第一次满屏"伪" */
+  await dieScreen('词 条 · 伪 · 修 订 中', 2600);
+  stain(78, 84, 0.5);
+  await say('灯亮回来的时候，词典自己翻了一页。', 'nar');
+  await say('右缘的拇指索引，一个一个，全都变成了同一个字。', 'nar');
+  tabState = 4; renderTabs();
+  breaking(500);
+  await say('气、心、亻——都没了。整本词典只剩一个部首。', 'nar');
+  await say('你数了数页码。页脚写着：', 'nar');
+  setPageNo('— 第 ' + NAME + ' 页 —', true);
+  await say('——它用你的名字做页码。', 'red', { hold: 1000 });
+  await say('释义区开始收紧。行距一行比一行窄，字挤着字，像一屋子人贴着墙站。', 'nar');
+  const sq = await say('你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪你伪', 'tofu', { squeeze: true, speed: 10, hold: 300 });
+  /* 第二次，更久 */
+  await dieScreen(userDeathDef ? '你 写 的 ：' + userDeathDef : '', 3600);
+  await flash('#3a0808', 900);
+  stain(50, 50, 0.75);
+  whisper(2.8);
+  await say('安静下来之后，词典翻到了最后一页。', 'nar');
+  await say('倒数第二页。', 'faint', { hold: 600 });
+  await waitTurn();
+}
+
+async function seqNight5(tk) {
+  await flip('白烛词典 · 第九版', '未 收 录', true);
+  await say('第伍夜。', 'faint big', { hold: 900 });
+  await say('最后一页只有一条词条。是你的。', 'nar');
+  await entry(NAME, '', ['人名。前修订者。', '曾补「伪」字条第四义：' + userDeathDef + '。', '（本词条尚缺例句。缺例句的词条，不得付印。）'], { mine: true, defSpeed: 38 });
+  await sleep(1000);
+  await rednote('轮到你了。词条要有例句，才算真的收录。');
+  await say('你有三支笔：删、写、合上。', 'nar');
+  await say('凡例第四条：「伪」字条修订完毕之前，不得合上书。', 'faint');
+  await say('而「伪」字条缺的那条例句——它等你署名。', 'faint', { hold: 800 });
+  const c = await choices([
+    { t: '删去自己的名字（删一个，少一笔）' },
+    { t: '补全例句（用你的字，为「伪」署名）' },
+    { t: '合上书（违反第四条）', red: true },
+  ]);
+  if (c === 0) await endingErase(tk);
+  else if (c === 1) await endingInclude(tk);
+  else await endingClose(tk);
+}
+
+/* ---- 结局一：删名 · 未收录 ---- */
+async function endingErase(tk) {
+  const sentence = NAME + '曾经在这里。';
+  const del = await playDelete(sentence, '删掉它。一个字一个字地删。<br><span class="rt">「删干净。像从未来过。」</span>', tk);
+  pen(6);
+  await say('你删掉了「' + del + '」。', 'nar');
+  await say('剩下的字没有等你。它们一个接一个自己淡下去，像退潮。', 'nar');
+  for (let i = 0; i < 3; i++) {
+    await say('口口口口口口口', 'tofu', { speed: 60, hold: 300 });
+  }
+  await sleep(600);
+  await say('词典轻轻合上了。不是你合的。', 'nar');
+  thump(true);
+  await flash('#000000', 1200);
+  store.bump('end_unlisted');
+  showEnd('结 局 · 未 收 录', '未 收 录',
+    '《白烛词典》第九版如期出版，坊间评价：释文精当，校对谨严。\n版权页印着修订者的名字——一个你不认识的名字。\n没有人记得你。但你的作息、你的笔迹、你窗帘第三道褶里的头发，都还有人接着用。\n词典里没有你。\n哪里都没有你——除了门外。');
+}
+
+/* ---- 结局二：收录 · 例句 ---- */
+async function endingInclude(tk) {
+  const eg = await playFill(
+    '为「伪」写例句。写完，词条就齐了。<br><span class="rt">「写吧。就写你现在做的事。」</span>',
+    '例：＿＿＿＿＿＿＿＿。', 10, tk
+  ) || '他读到这里';
+  pen(8);
+  await entry('伪', 'wěi', ['假，不真实（旧说，已删）。', '像，但不是。', userDeathDef + '。（' + NAME + '补。）', '例：' + eg + '。'], { mine: true, defSpeed: 40 });
+  await sleep(1500);
+  await say('墨迹干透的那一刻，你忽然感觉不到笔的重量了。', 'nar');
+  await say('然后是手的重量。然后是重量的重量。', 'nar');
+  await say('词条齐了。可以付印了。', 'red', { hold: 1200 });
+  await dieScreen('词 条 齐 备 · 付 印', 3000);
+  store.bump('end_included');
+  showEnd('结 局 · 收 录', '收 录',
+    '《白烛词典》第九版出版那天，「伪」字条因为释义精当，被书评单独引了一次。\n「' + userDeathDef + '。」——后面跟着你写的例句：\n「' + eg + '。」\n每个翻到这一页的人，都会替你把这个例句再读一遍。\n读一遍，世上就多一个你。\n词典不收伪人。词典只收写得像的人。');
+}
+
+/* ---- 结局三：合上 · 作废 ---- */
+async function endingClose(tk) {
+  await say('你合上了书。', 'nar');
+  thump(true);
+  await sleep(1200);
+  await say('第四条。你违反了第四条。', 'red', { hold: 1000 });
+  breaking(700);
+  await flash('#7e0d0d', 500);
+  await say('「伪」字条还没有修订完。它不允许。', 'nar');
+  /* 伪潮：连续三次满屏"伪" */
+  await dieScreen('', 1800);
+  await dieScreen('第 四 条', 2200);
+  lampFlicker();
+  await dieScreen('修 订 者 须 读 完', 3000);
+  store.bump('end_void');
+  showEnd('结 局 · 作 废', '作 废',
+    '第二天，出版社在校样上发现了一处重大差错：\n「伪」字条的释义栏是空的，栏里只有一枚合拢的书形压痕。\n整版作废，第九版延期。\n延期通知的落款处，签着修订者的名字。\n是你的笔迹。你不记得签过。\n——今晚零时，它还会再来找你。凡例第四条，从来都不是为你写的。是为你们写的。');
+}
+
+function showEnd(tag, title, body) {
+  droneStop(); humStop();
+  $('#endTag').textContent = tag;
+  $('#endTitle').textContent = title;
+  $('#endBody').innerHTML = body.split('\n').join('<br>');
+  $('#book').style.display = 'none';
+  $('#endScreen').classList.add('on');
+  const o = store.get();
+  const got = ['end_unlisted', 'end_included', 'end_void'].filter(k => o[k]).length;
+  if (got >= 3) {
+    const m = document.createElement('div');
+    m.style.cssText = 'margin-top:2em;font-size:12px;color:#7e0d0d;letter-spacing:.25em;';
+    m.textContent = '——三个结局你都读过了。它还记得你。';
+    $('#endBody').after(m);
+  }
+}
+$('#endRestart').onclick = () => location.reload();
+</script>
+
+<script>
+/* ============================================================
+   启动
+   ============================================================ */
+(function boot() {
+  renderTabs();
+  const o = store.get();
+  const cp = (o.wsl_cp && o.wsl_cp.name) ? o.wsl_cp : null;
+
+  /* 封面备忘：结局数 / 彩蛋数 / 存档 */
+  let memo = '';
+  const got = ['end_unlisted', 'end_included', 'end_void'].filter(k => o[k]).length;
+  if (got > 0) memo += '你已在词典里留下 ' + got + ' 种写法。';
+  const eggN = Object.keys(o.eggs || {}).length;
+  if (eggN > 0) memo += (memo ? '　' : '') + '彩蛋 ' + eggN + '/' + EGGS_TOTAL + '。';
+  if (cp) memo += (memo ? '　' : '') + '搁笔存档：' + CH_NAMES[cp.ch] + '。';
+  $('#titleMemo').textContent = memo;
+
+  /* 有存档：签名封存，不得更名；印章变"继续修订" */
+  if (cp) {
+    const ni = $('#nameInput');
+    ni.value = cp.name;
+    ni.disabled = true;
+    ni.style.opacity = '.55';
+    ni.placeholder = '';
+    const lock = document.createElement('div');
+    lock.style.cssText = 'margin-top:.7em;font-size:12px;color:#a01212;letter-spacing:.25em;font-family:"Kaiti SC","STKaiti","KaiTi",serif;';
+    lock.textContent = '签名已封存 · 搁笔期间不得更名';
+    $('#titleMemo').before(lock);
+    $('#startBtn').innerHTML = '继续<br>修订';
+    const fresh = document.createElement('button');
+    fresh.className = 'sp-btn danger';
+    fresh.style.cssText = 'width:auto;margin:1.6em auto 0;padding:.6em 1.4em;font-size:12px;';
+    fresh.textContent = '另 起 一 页（清 除 存 档）';
+    fresh.onclick = () => { clearCp(); uiTick(false); location.reload(); };
+    $('.tp-cip').appendChild(fresh);
+  }
+
+  $('#startBtn').onclick = async () => {
+    const v = ($('#nameInput').value || '').replace(/\s/g, '').slice(0, 4);
+    NAME = (cp && cp.name) || v || '修订者';
+    const startCh = cp ? cp.ch : 0;
+    ac(); humStart();
+    paper();
+    $('#titleScreen').classList.remove('on');
+    const tk = ++runToken;
+    try {
+      if (startCh <= 0) { tabState = 0; renderTabs(); saveCp(0); await seqRules(tk); if (tk !== runToken) return; }
+      if (startCh <= 1) { tabState = 0; renderTabs(); saveCp(1); await seqNight1(tk); if (tk !== runToken) return; }
+      if (startCh <= 2) { tabState = 1; renderTabs(); saveCp(2); await seqNight2(tk); if (tk !== runToken) return; }
+      if (startCh <= 3) { tabState = 2; renderTabs(); saveCp(3); await seqNight3(tk); if (tk !== runToken) return; }
+      if (startCh <= 4) { tabState = 3; renderTabs(); saveCp(4); await seqNight4(tk); if (tk !== runToken) return; }
+      tabState = 4; renderTabs(); saveCp(5); await seqNight5(tk);
+    } catch (e) { /* 打断即停止 */ }
+  };
+})();
+</script>
+</body>
+</html>
